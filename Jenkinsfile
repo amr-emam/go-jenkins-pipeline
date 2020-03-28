@@ -12,6 +12,7 @@ labels:
 spec:
   # Use service account that can deploy to all namespaces
   serviceAccountName: jenkins
+  serviceAccount: jenkins
   containers:
   - name: maven
     image: maven:latest
@@ -38,17 +39,21 @@ spec:
       steps {
         container('maven') {
           sh """
-                        echo "maven build";
-                                                """
+            pwd;
+            ls -ltr;
+            echo "maven build" > /home/jenkins/agent/from-maven-image;
+             """
         }
       }
     }
     stage('Test') {
       steps {
-        container('maven') {
+        container('docker') {
           sh """
-             echo "maven test";
-          """
+            pwd;
+            ls -ltr;
+            ls -ltr /home/jenkins/agent/;
+            """
         }
       }
     }
@@ -57,7 +62,7 @@ spec:
         container('docker') {
           sh """
              docker build -t spring-petclinic-demo:$BUILD_NUMBER .
-          """
+            """
         }
       }
     }
