@@ -4,11 +4,11 @@ pipeline {
        registry = "magalixcorp/k8scicd"
        GOCACHE = "/tmp"
    }
-    stage('Initialize'){
-        def dockerHome = tool 'mydocker'
-        env.PATH = "${dockerHome}/bin:${env.PATH}"
-    }
    stages {
+       stage('Initialize'){
+            def dockerHome = tool 'mydocker'
+            env.PATH = "${dockerHome}/bin:${env.PATH}"
+       }
        stage('Build') {
            agent {
                docker {
