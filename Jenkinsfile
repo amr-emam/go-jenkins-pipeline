@@ -27,6 +27,11 @@ spec:
     volumeMounts:
     - mountPath: /var/run/docker.sock
       name: docker-sock
+  - name: kubectl
+    image: bitnami/kubectl
+    command:
+    - cat
+    tty: true
   volumes:
     - name: docker-sock
       hostPath:
@@ -61,7 +66,16 @@ spec:
       steps {
         container('docker') {
           sh """
-             docker build -t spring-petclinic-demo:$BUILD_NUMBER .
+             echo "build";
+            """
+        }
+      }
+    }
+    stage('Deploy') {
+      steps {
+        container('kubectl') {
+          sh """
+             kubectl get pods;
             """
         }
       }
