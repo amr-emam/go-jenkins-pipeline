@@ -1,65 +1,71 @@
 pipeline {
-   agent any
-   environment {
-       registry = "magalixcorp/k8scicd"
-       GOCACHE = "/tmp"
+  agent {
+    kubernetes {
+      label 'spring-petclinic-demo'
+      defaultContainer 'jnlp'
+      yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+labels:
+  component: ci
+spec:
+  # Use service account that can deploy to all namespaces
+  serviceAccountName: cd-jenkins
+  containers:
+  - name: maven
+    image: maven:latest
+    command:
+    - cat
+    tty: true
+    volumeMounts:
+      - mountPath: "/root/.m2"
+        name: m2
+  - name: docker
+    image: docker:latest
+    command:
+    - cat
+    tty: true
+    volumeMounts:
+    - mountPath: /var/run/docker.sock
+      name: docker-sock
+  volumes:
+    - name: docker-sock
+      hostPath:
+        path: /var/run/docker.sock
+    - name: m2
+      persistentVolumeClaim:
+        claimName: m2
+"""
+}
    }
-   stages {
-       stage('Build') {
-           agent {
-               docker {
-                   image 'golang'
-               }
-           }
-           steps {
-               // Create our project directory.
-               sh 'cd ${GOPATH}/src'
-               sh 'mkdir -p ${GOPATH}/src/hello-world'
-               // Copy all files in our Jenkins workspace to our project directory.
-               sh 'cp -r ${WORKSPACE}/* ${GOPATH}/src/hello-world'
-               // Build the app.
-               sh 'go build'
-           }
-       }
-       stage('Test') {
-           agent {
-               docker {
-                   image 'golang'
-               }
-           }
-           steps {
-               // Create our project directory.
-               sh 'cd ${GOPATH}/src'
-               sh 'mkdir -p ${GOPATH}/src/hello-world'
-               // Copy all files in our Jenkins workspace to our project directory.
-               sh 'cp -r ${WORKSPACE}/* ${GOPATH}/src/hello-world'
-               // Remove cached test results.
-               sh 'go clean -cache'
-               // Run Unit Tests.
-               sh 'go test ./... -v -short'
-           }
-       }
-       stage('Publish') {
-           environment {
-               registryCredential = 'dockerhub'
-           }
-           steps{
-               script {
-                   def appimage = docker.build registry + ":$BUILD_NUMBER"
-                   docker.withRegistry( '', registryCredential ) {
-                       appimage.push()
-                       appimage.push('latest')
-                   }
-               }
-           }
-       }
-       stage ('Deploy') {
-           steps {
-               script{
-                   def image_id = registry + ":$BUILD_NUMBER"
-                   sh "echo ${image_id} >> /tmp/deploy"
-               }
-           }
-       }
-   }
+  stages {
+    stage('Build') {
+      steps {
+        container('maven') {
+          sh """
+                        echo "maven build";
+                                                """
+        }
+      }
+    }
+    stage('Test') {
+      steps {
+        container('maven') {
+          sh """
+             echo "maven test";
+          """
+        }
+      }
+    }
+    stage('Push') {
+      steps {
+        container('docker') {
+          sh """
+             docker build -t spring-petclinic-demo:$BUILD_NUMBER .
+          """
+        }
+      }
+    }
+  }
 }
