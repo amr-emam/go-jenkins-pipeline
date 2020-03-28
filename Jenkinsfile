@@ -28,7 +28,7 @@ spec:
     - mountPath: /var/run/docker.sock
       name: docker-sock
   - name: kubectl
-    image: bitnami/kubectl
+    image: bitnami/kubectl:latest
     command:
     - cat
     tty: true
