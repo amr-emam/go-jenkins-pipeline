@@ -19,6 +19,11 @@ spec:
     command:
     - cat
     tty: true
+  - name: kubectl
+    image: bitnami/kubectl:latest
+    command:
+    - cat
+    tty: true
   - name: docker
     image: docker:latest
     command:
@@ -27,11 +32,6 @@ spec:
     volumeMounts:
     - mountPath: /var/run/docker.sock
       name: docker-sock
-  - name: kubectl
-    image: bitnami/kubectl:latest
-    command:
-    - cat
-    tty: true
 """
 }
    }
