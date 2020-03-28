@@ -73,9 +73,9 @@ spec:
     }
     stage('Deploy') {
       steps {
-        container('docker') {
+        container('kubectl') {
           sh """
-             docker ps;
+             ls;
             """
         }
       }
