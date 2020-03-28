@@ -73,9 +73,9 @@ spec:
     }
     stage('Deploy') {
       steps {
-        container('kubectl') {
+        container('docker') {
           sh """
-             kubectl get pods;
+             docker ps;
             """
         }
       }
