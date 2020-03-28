@@ -1,83 +1,63 @@
-pipeline {
-  agent {
-    kubernetes {
-      label 'jenkins-agent'
-      defaultContainer 'jnlp'
-      yaml """
-apiVersion: v1
-kind: Pod
-metadata:
-labels:
-  component: ci
-spec:
-  # Use service account that can deploy to all namespaces
-  serviceAccountName: jenkins
-  serviceAccount: jenkins
-  containers:
-  - name: maven
-    image: maven:latest
-    command:
-    - cat
-    tty: true
-  - name: docker
-    image: docker:latest
-    command:
-    - cat
-    tty: true
-    volumeMounts:
-    - mountPath: /var/run/docker.sock
-      name: docker-sock
-  - name: kubectl
-    image: lachlanevenson/k8s-kubectl:v1.8.8
-    command:
-    - cat
-    tty: true
-  volumes:
-    - name: docker-sock
-      hostPath:
-        path: /var/run/docker.sock
-"""
-}
-   }
-  stages {
-    stage('Build') {
-      steps {
+def label = "jenkins-agent-${UUID.randomUUID().toString()}"
+
+podTemplate(label: label, containers: [
+  containerTemplate(name: 'maven', image: 'maven:latest', command: 'cat', ttyEnabled: true),
+  containerTemplate(name: 'docker', image: 'docker:latest', command: 'cat', ttyEnabled: true),
+  containerTemplate(name: 'kubectl', image: 'lachlanevenson/k8s-kubectl:v1.8.8', command: 'cat', ttyEnabled: true),
+  containerTemplate(name: 'helm', image: 'lachlanevenson/k8s-helm:latest', command: 'cat', ttyEnabled: true)
+],
+volumes: [
+  hostPathVolume(mountPath: '/var/run/docker.sock', hostPath: '/var/run/docker.sock')
+]) {
+  node(label) {
+    def myRepo = checkout scm
+    def gitCommit = myRepo.GIT_COMMIT
+    def gitBranch = myRepo.GIT_BRANCH
+    def shortGitCommit = "${gitCommit[0..10]}"
+    def previousGitCommit = sh(script: "git rev-parse ${gitCommit}~", returnStdout: true)
+ 
+    stage('Test') {
+      try {
         container('maven') {
           sh """
-            pwd;
-            ls -ltr;
-            echo "maven build" > /home/jenkins/agent/from-maven-image;
-             """
+            pwd
+            echo "GIT_BRANCH=${gitBranch}" >> /etc/environment
+            echo "GIT_COMMIT=${gitCommit}" >> /etc/environment
+            """
         }
       }
+      catch (exc) {
+        println "Failed to test - ${currentBuild.fullDisplayName}"
+        throw(exc)
+      }
     }
-    stage('Test') {
-      steps {
-        container('docker') {
+    stage('Build') {
+      container('maven') {
+        sh "ls;"
+      }
+    }
+    stage('Build Docker') {
+      container('docker') {
+        withCredentials([[$class: 'UsernamePasswordMultiBinding',
+          credentialsId: 'dockerhub',
+          usernameVariable: 'DOCKER_HUB_USER',
+          passwordVariable: 'DOCKER_HUB_PASSWORD']]) {
           sh """
-            pwd;
-            ls -ltr;
-            ls -ltr /home/jenkins/agent/;
+            #docker login -u ${DOCKER_HUB_USER} -p ${DOCKER_HUB_PASSWORD}
+            #docker build -t namespace/my-image:${gitCommit} .
+            #docker push namespace/my-image:${gitCommit}
             """
         }
       }
     }
-    stage('Push') {
-      steps {
-        container('docker') {
-          sh """
-             echo "build";
-            """
-        }
+    stage('Run kubectl') {
+      container('kubectl') {
+        sh "kubectl get pods"
       }
     }
-    stage('Deploy') {
-      steps {
-        container('kubectl') {
-          sh """
-             ls;
-            """
-        }
+    stage('Run helm') {
+      container('helm') {
+        sh "helm list"
       }
     }
   }
